@@ -164,6 +164,48 @@ enum Cmd {
     Holders {
         code: String,
     },
+    /// 十大流通股东
+    Holders10 {
+        code: String,
+        #[arg(long, short = 'n', default_value_t = 10)]
+        num: usize,
+    },
+    /// 可转债行情列表
+    Convertible {
+        /// 排序字段：turnover成交额/change涨跌幅/price价格/premium转股溢价率/value转股价值/put-trigger回售触发价
+        #[arg(long, default_value = "turnover")]
+        by: String,
+        #[arg(long)]
+        asc: bool,
+        #[arg(long, short = 'n', default_value_t = 20)]
+        num: usize,
+    },
+    /// ETF 行情列表
+    Etf {
+        /// 排序字段：turnover成交额/change涨跌幅/volume成交量/rate换手率
+        #[arg(long, default_value = "turnover")]
+        by: String,
+        #[arg(long)]
+        asc: bool,
+        #[arg(long, short = 'n', default_value_t = 20)]
+        num: usize,
+    },
+    /// 北向/南向资金当日分时净流入
+    Northbound {
+        /// 查看南向资金（默认北向）
+        #[arg(long)]
+        south: bool,
+        #[arg(long, short = 'n', default_value_t = 10)]
+        num: usize,
+    },
+    /// 7x24 财经快讯
+    Kuaixun {
+        /// 频道：102重要(默认)/101全部/104公司/105市场/106机构/107宏观
+        #[arg(long, default_value = "102")]
+        column: String,
+        #[arg(long, short = 'n', default_value_t = 20)]
+        num: usize,
+    },
     /// 个股资讯
     News {
         code: String,
@@ -235,6 +277,11 @@ fn main() {
         Cmd::Info { code } => commands::info(&ctx, code),
         Cmd::Finance { code, num } => commands::finance(&ctx, code, *num),
         Cmd::Holders { code } => commands::holders(&ctx, code),
+        Cmd::Holders10 { code, num } => commands::holders10(&ctx, code, *num),
+        Cmd::Convertible { by, asc, num } => commands::convertible(&ctx, by, *asc, *num),
+        Cmd::Etf { by, asc, num } => commands::etf(&ctx, by, *asc, *num),
+        Cmd::Northbound { south, num } => commands::northbound(&ctx, *south, *num),
+        Cmd::Kuaixun { column, num } => commands::kuaixun(&ctx, column, *num),
         Cmd::News { code, num } => commands::news(&ctx, code, *num),
         Cmd::Ann { code, num } => commands::ann(&ctx, code, *num),
         Cmd::Watch { group, groups, raw } => commands::watch(&ctx, group.clone(), *groups, *raw),

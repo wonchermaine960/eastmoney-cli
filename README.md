@@ -1,6 +1,6 @@
 # eastmoney-cli (em)
 
-东方财富（eastmoney.com）A 股数据命令行工具，Rust 编写。覆盖个股行情、K线、资金流、财务、公告、大盘概览、涨停池、龙虎榜、板块行情、股吧人气榜和自选股。
+东方财富（eastmoney.com）A 股数据命令行工具，Rust 编写。覆盖个股行情、K线、资金流、财务、公告、大盘概览、涨停池、龙虎榜、板块行情、北向/南向资金、可转债、ETF、十大流通股东、7x24财经快讯、股吧人气榜和自选股。
 
 为 Agent 设计：所有命令支持 `--json` 结构化输出；配套 skill 见 `skills/eastmoney/SKILL.md`。
 
@@ -34,6 +34,11 @@ cp target/release/em /usr/local/bin/
 | `em info <code>` | F10 公司概况 |
 | `em finance <code>` | 主要财务指标 |
 | `em holders <code>` | 股东户数 |
+| `em holders10 <code>` | 十大流通股东 |
+| `em convertible [--by turnover\|change\|price\|premium\|value\|put-trigger] [--asc]` | 可转债行情列表 |
+| `em etf [--by turnover\|change\|volume\|rate] [--asc]` | ETF 行情列表 |
+| `em northbound [--south]` | 北向/南向资金分时净流入 |
+| `em kuaixun [--column 102]` | 7x24 财经快讯 |
 | `em news <code>` / `em ann <code>` | 个股资讯 / 公告 |
 | `em search <关键词>` | 搜索证券/板块 |
 | `em watch [--groups] [-g 分组名]` | 自选股（需 Cookie），支持多分组 |
