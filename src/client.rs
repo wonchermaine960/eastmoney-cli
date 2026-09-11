@@ -7,6 +7,8 @@ const UA: &str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/53
 pub const QT_UT: &str = "fa5fd1943c7b386f172d6893dbfba10b";
 pub const ZTZT_UT: &str = "7eea3edcaed734bea9cbfc24409ed989";
 pub const MYFAVOR_APPKEY: &str = "e9166c7e9cdfad3aa3fd7d93b757e9b1";
+/// 北向/南向资金分时接口专用 ut
+pub const NORTH_UT: &str = "b2884a393a59ad64002292a3e90d46a5";
 
 /// 实时行情主备域名：push2 有 IP 级限流，push2delay 为独立集群兜底
 const QT_HOSTS: [&str; 2] = [

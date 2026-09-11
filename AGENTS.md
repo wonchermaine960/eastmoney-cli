@@ -4,7 +4,7 @@
 
 ## 项目概述
 
-东方财富（eastmoney.com）A 股数据 CLI，Rust 编写，二进制名 `em`。22 个子命令覆盖行情/K线/大盘/涨停池/龙虎榜/板块/资金流/股吧人气榜/F10/自选股。为 Agent 设计：所有命令支持 `--json`；配套 skill 在 `skills/eastmoney/SKILL.md`。
+东方财富（eastmoney.com）A 股数据 CLI，Rust 编写，二进制名 `em`。27 个子命令覆盖行情/K线/大盘/涨停池/龙虎榜/板块/资金流/北向资金/可转债/ETF/股吧人气榜/F10/十大股东/7x24快讯/自选股。为 Agent 设计：所有命令支持 `--json`；配套 skill 在 `skills/eastmoney/SKILL.md`。
 
 ## 常用命令
 

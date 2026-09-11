@@ -1,6 +1,6 @@
 ---
 name: eastmoney
-description: 东方财富 A 股数据查询 CLI（命令名 em）。当用户询问 A 股行情、个股详情/K线/资金流/财务/公告、大盘指数、涨停池、龙虎榜、板块行情、股吧人气榜/热门股、自选股时使用。支持股票代码、中文名、拼音查询。
+description: 东方财富 A 股数据查询 CLI（命令名 em）。当用户询问 A 股行情、个股详情/K线/资金流/财务/公告、大盘指数、涨停池、龙虎榜、板块行情、北向南向资金/沪深港通、可转债、ETF、十大流通股东、7x24财经快讯、股吧人气榜/热门股、自选股时使用。支持股票代码、中文名、拼音查询。
 ---
 
 # eastmoney CLI (em)
@@ -29,6 +29,11 @@ em lhb --json                      # 龙虎榜（默认最近交易日）; --dat
 em info 300339 --json              # F10 公司概况
 em finance 300339 -n 5 --json      # 主要财务指标（近5个报告期）
 em holders 300339 --json           # 股东户数
+em holders10 300339 --json         # 十大流通股东
+em convertible --json              # 可转债行情列表（默认按成交额排序）
+em etf --json                      # ETF 行情列表（默认按成交额排序）
+em northbound --json               # 北向资金分时净流入; --south 看南向
+em kuaixun --json                  # 7x24 财经快讯（--column 102重要/101全部/104公司/105市场/106机构/107宏观）
 em news 300339 --json              # 个股资讯
 em ann 300339 --json               # 个股公告
 em search 半导体 --json            # 搜索证券/板块代码
@@ -60,3 +65,7 @@ em watch -g 分组名 --json          # 查看指定分组（分组名或ID）
 - "今天涨停的有哪些" → `em zt --json`
 - "XX板块今天表现" → `em board industry --json` 找到板块 → `em board-stocks BKxxxx --json`
 - "我的自选股" → `em watch --json`
+- "今天北向资金流入多少" → `em northbound --json`
+- "可转债有哪些机会" → `em convertible --by premium --json`
+- "最近有什么大事" → `em kuaixun --json`
+- "XX股票十大股东" → `em holders10 300339 --json`

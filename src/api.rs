@@ -1,4 +1,4 @@
-use crate::client::{Body, Http, QT_UT, ZTZT_UT};
+use crate::client::{Body, Http, NORTH_UT, QT_UT, ZTZT_UT};
 use anyhow::{anyhow, Result};
 use serde_json::{json, Value};
 
@@ -7,6 +7,10 @@ pub const FS_A_STOCK: &str = "m:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23,m:0+t:81+s:2048"
 pub const FS_INDUSTRY: &str = "m:90+t:2+f:!50";
 pub const FS_CONCEPT: &str = "m:90+t:3+f:!50";
 pub const FS_REGION: &str = "m:90+t:1+f:!50";
+/// 沪深可转债板块（b: 板块代码筛选）
+pub const FS_CONVERTIBLE: &str = "b:MK0354";
+/// 场内 ETF 板块
+pub const FS_ETF: &str = "b:MK0021";
 
 /// 常用行情字段（ulist/clist 通用）
 pub const QUOTE_FIELDS: &str = "f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f12,f13,f14,f15,f16,f17,f18,f20,f21,f23,f62,f100";
@@ -387,4 +391,47 @@ pub fn dc_query(
         .and_then(|d| d.as_array())
         .cloned()
         .ok_or_else(|| anyhow!("{} 无数据", report))
+}
+
+/// 北向/南向资金当日分时净流入。每行 CSV："HH:MM,累计净流入,分钟净流入,当日净流入"（单位万元，"-"表示未开盘/已收盘）
+/// south=false 取北向（n2s），south=true 取南向（s2n）
+pub fn northbound(http: &Http, south: bool) -> Result<Vec<String>> {
+    let v = http.qt(
+        "/api/qt/kamtbs.rtmin/get",
+        &[("fields1", "f1,f2,f3,f4"), ("fields2", "f51,f52,f54,f56"), ("ut", NORTH_UT)],
+    )?;
+    let key = if south { "s2n" } else { "n2s" };
+    let rows = v
+        .pointer(&format!("/data/{}", key))
+        .and_then(|d| d.as_array())
+        .map(|a| a.iter().filter_map(|x| x.as_str().map(String::from)).collect::<Vec<_>>())
+        .ok_or_else(|| anyhow!("北向/南向资金数据为空"))?;
+    let valid: Vec<String> = rows.into_iter().filter(|r| !r.ends_with(",-,-,-") && !r.contains(",-,")).collect();
+    if valid.is_empty() {
+        return Err(anyhow!("暂无有效分时数据（可能未开盘）"));
+    }
+    Ok(valid)
+}
+
+/// 东方财富 7x24 财经快讯
+pub fn kuaixun(http: &Http, column: &str, num: usize) -> Result<Vec<Value>> {
+    let page_size = num.to_string();
+    let v = http.request(
+        "https://np-listapi.eastmoney.com/comm/web/getFastNewsList",
+        &[
+            ("client", "web"),
+            ("biz", "web_724"),
+            ("fastColumn", column),
+            ("sortEnd", ""),
+            ("pageSize", page_size.as_str()),
+            ("req_trace", "1"),
+        ],
+        Body::None,
+        "https://kuaixun.eastmoney.com/",
+        None,
+    )?;
+    v.pointer("/data/fastNewsList")
+        .and_then(|d| d.as_array())
+        .cloned()
+        .ok_or_else(|| anyhow!("快讯为空"))
 }

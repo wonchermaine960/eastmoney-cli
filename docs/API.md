@@ -16,6 +16,7 @@
 | `gbapi.eastmoney.com` | 股吧帖子 | 无需登录 |
 | `searchapi.eastmoney.com` | 搜索/代码表 | 返回 `QuoteID`（即 secid），是代码→市场解析的权威来源 |
 | `np-anotice-stock.eastmoney.com` | 公告 | 无需登录 |
+| `np-listapi.eastmoney.com` | 7x24 财经快讯 | 无需登录，独立集群 |
 | `quote.eastmoney.com/zixuan/api/*` | 自选页资讯（infomines/zixun） | 无需登录 |
 | `myfavor.eastmoney.com` | 自选股 | **需登录 Cookie**（缺失时报 `CUToken 为空`）。appkey=`e9166c7e9cdfad3aa3fd7d93b757e9b1`（从 zixuan/build/index.js 提取） |
 
@@ -42,6 +43,11 @@
 6. **K线（仅 push2his）** `GET /api/qt/stock/kline/get?secid=..&fields1=f1,f2,f3&fields2=f51,...,f61&klt=101&fqt=1&end=20500101&lmt=N`
    - klt: 1/5/15/30/60分钟, 101日 102周 103月；fqt: 0不复权 1前复权 2后复权
    - fields2: f51日期 f52开 f53收 f54高 f55低 f56量(手) f57额 f58振幅% f59涨跌幅% f60涨跌额 f61换手%
+7. **北向/南向资金分时净流入** `GET /api/qt/kamtbs.rtmin/get?fields1=f1,f2,f3,f4&fields2=f51,f52,f54,f56&ut=b2884a393a59ad64002292a3e90d46a5`（专用 ut，与 QT_UT 不同）
+   - `data.n2s`（北向）/ `data.s2n`（南向）为字符串数组，每项 `"HH:MM,累计净流入,分钟净流入,当日净流入"`，单位**万元**（除以 10000 得亿元）；未开盘/已收盘的分钟为 `"-"`
+8. **可转债行情列表** `GET /api/qt/clist/get?...&fs=b:MK0354&fields=f12,f14,f2,f3,f6,f229,f230,f232,f234,f235,f236,f237,f238,f239,f243`
+   - f12转债代码 f14转债名称 f2转债价 f3转债涨跌幅 f6成交额 f229正股价 f230正股涨跌幅 f232正股代码 f234正股名称 f235转股价 f236转股价值 f237转股溢价率% f238纯债溢价率% f239回售触发价(≈转股价×0.7) f243上市日期(YYYYMMDD)
+9. **ETF 行情列表** `GET /api/qt/clist/get?...&fs=b:MK0021&fields=f12,f14,f2,f3,f4,f5,f6,f8`（场内 ETF 板块，字段含义同 ulist/clist 通用字段）
 
 ### 常用字段（ulist/clist，fltt=2）
 f1精度 f2最新价 f3涨跌幅% f4涨跌额 f5成交量(手) f6成交额(元) f7振幅 f8换手% f9市盈(动) f10量比
@@ -82,6 +88,7 @@ body 公共字段：`{"appId":"appId01","globalId":"<任意uuid>"}`
 - F10 概况（datacenter.eastmoney.com/securities/api/data/v1/get + `source=HSF10&client=PC`）：
   - `RPT_F10_BASIC_ORGINFO` filter `(SECUCODE="300339.SZ")` → 公司全称/行业(EM2016)/董事长/简介(ORG_PROFILE)/注册资本等
   - `RPT_F10_FINANCE_MAINFINADATA` sort REPORT_DATE desc → EPSJB每股收益 BPS每股净资产 TOTAL_OPERATE_INCOME? TOTALOPERATEREVE营收 PARENTNETPROFIT归母净利 TOTALOPERATEREVETZ营收同比 PARENTNETPROFITTZ净利同比 XSMLL毛利率 ROEJQ加权ROE ZCFZL资产负债率 REPORT_DATE_NAME
+  - 十大流通股东 `RPT_F10_EH_FREEHOLDERS` filter `(SECUCODE="300339.SZ")`，sort `END_DATE,HOLDER_RANK` / `-1,1`（需 `source=HSF10&client=PC`）→ HOLDER_RANK排名 HOLDER_NAME股东名称 HOLD_NUM持股数 FREE_HOLDNUM_RATIO占流通股比% HOLD_NUM_CHANGE较上期变化(数字或"不变"/"新进") END_DATE报告期；同一股东可能跨多期出现，需按最新 END_DATE 过滤
 
 ## 其他
 
@@ -89,6 +96,7 @@ body 公共字段：`{"appId":"appId01","globalId":"<任意uuid>"}`
 - **公告** `GET https://np-anotice-stock.eastmoney.com/api/security/ann?sr=-1&page_size=N&page_index=1&ann_type=A&stock_list=300339` → data.list[]：title/art_code/notice_date/columns[].column_name；详情页 `https://data.eastmoney.com/notices/detail/<code>/<art_code>.html`
 - **个股资讯** `POST https://quote.eastmoney.com/zixuan/api/infomines`，form `codes=0.300339`（多个逗号分隔）→ result{secid:{data:[{date,title,url}]}}
 - **股吧帖子** `GET https://gbapi.eastmoney.com/webarticlelist/api/Article/Articlelist?code=300339&type=0&index=1&pageSize=N&deviceid=100&version=200&product=Guba&plat=Web` → re[]：post_title/post_publish_time/post_click_count/post_comment_count/user_nickname
+- **7x24 财经快讯** `GET https://np-listapi.eastmoney.com/comm/web/getFastNewsList?client=web&biz=web_724&fastColumn=102&sortEnd=&pageSize=N&req_trace=1`（独立域名，无明显限流；`fastColumn`：102重要/101全部/104公司/105市场/106机构/107宏观）→ `data.fastNewsList[]`：showTime/title/summary/stockList(secid数组)/code
 - **自选股（需 Cookie，已实测）** `https://myfavor.eastmoney.com/v4/webouter/`
   - 分组列表 `GET ggdefstkindexinfos?appkey=e9166c7e9cdfad3aa3fd7d93b757e9b1` → `data.ginfolist:[{gid,gname,ver,...}]`
   - 组内股票 `GET gstkinfos?appkey=...&g=<gid>` → `data.stkinfolist:[{security:"市场$代码$内部id",star,updatetime,price(加自选时价格)}]`

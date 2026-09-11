@@ -605,6 +605,186 @@ pub fn flow_rank(ctx: &Ctx, num: usize) -> Result<()> {
     Ok(())
 }
 
+// ---------- 可转债 ----------
+
+fn convertible_fid(by: &str) -> Result<&'static str> {
+    Ok(match by {
+        "turnover" => "f6",
+        "change" => "f3",
+        "price" => "f2",
+        "premium" => "f237",
+        "value" => "f236",
+        "put-trigger" => "f239",
+        _ => return Err(anyhow!("--by 仅支持 turnover/change/price/premium/value/put-trigger")),
+    })
+}
+
+pub fn convertible(ctx: &Ctx, by: &str, asc: bool, num: usize) -> Result<()> {
+    let fid = convertible_fid(by)?;
+    let fields = "f12,f14,f2,f3,f6,f229,f230,f232,f234,f235,f236,f237,f238,f239,f243";
+    let items = api::clist(&ctx.http, api::FS_CONVERTIBLE, fid, asc, num, fields)?;
+    if ctx.json {
+        let out: Vec<Value> = items
+            .iter()
+            .map(|it| {
+                json!({
+                    "bond_code": str_at(it, "f12"), "bond_name": str_at(it, "f14"),
+                    "bond_price": num_at(it, "f2"), "bond_pct_chg": num_at(it, "f3"),
+                    "amount": num_at(it, "f6"),
+                    "stock_code": str_at(it, "f232"), "stock_name": str_at(it, "f234"),
+                    "stock_price": num_at(it, "f229"), "stock_pct_chg": num_at(it, "f230"),
+                    "conv_price": num_at(it, "f235"), "conv_value": num_at(it, "f236"),
+                    "premium_pct": num_at(it, "f237"), "pure_bond_premium_pct": num_at(it, "f238"),
+                    "put_trigger_price": num_at(it, "f239"), "list_date": str_at(it, "f243"),
+                })
+            })
+            .collect();
+        ctx.emit(&Value::Array(out));
+        return Ok(());
+    }
+    let mut t = Table::new(
+        &["转债代码", "转债名称", "转债价", "涨跌幅", "正股代码", "正股名称", "正股涨跌幅", "转股价", "转股价值", "溢价率", "纯债溢价率", "上市日期"],
+        vec![
+            Align::Left, Align::Left, Align::Right, Align::Right, Align::Left, Align::Left,
+            Align::Right, Align::Right, Align::Right, Align::Right, Align::Right, Align::Left,
+        ],
+    );
+    for it in &items {
+        t.row(vec![
+            str_at(it, "f12"),
+            str_at(it, "f14"),
+            fmt_opt(num_at(it, "f2"), 2),
+            colorize_pct(num_at(it, "f3")),
+            str_at(it, "f232"),
+            str_at(it, "f234"),
+            colorize_pct(num_at(it, "f230")),
+            fmt_opt(num_at(it, "f235"), 2),
+            fmt_opt(num_at(it, "f236"), 2),
+            num_at(it, "f237").map(|x| format!("{:.2}%", x)).unwrap_or("-".into()),
+            num_at(it, "f238").map(|x| format!("{:.2}%", x)).unwrap_or("-".into()),
+            str_at(it, "f243"),
+        ]);
+    }
+    t.print();
+    Ok(())
+}
+
+// ---------- ETF ----------
+
+fn etf_fid(by: &str) -> Result<&'static str> {
+    Ok(match by {
+        "turnover" => "f6",
+        "change" => "f3",
+        "volume" => "f5",
+        "rate" => "f8",
+        _ => return Err(anyhow!("--by 仅支持 turnover/change/volume/rate")),
+    })
+}
+
+pub fn etf(ctx: &Ctx, by: &str, asc: bool, num: usize) -> Result<()> {
+    let fid = etf_fid(by)?;
+    let fields = "f12,f14,f2,f3,f4,f5,f6,f8";
+    let items = api::clist(&ctx.http, api::FS_ETF, fid, asc, num, fields)?;
+    if ctx.json {
+        let out: Vec<Value> = items
+            .iter()
+            .map(|it| {
+                json!({
+                    "code": str_at(it, "f12"), "name": str_at(it, "f14"),
+                    "price": num_at(it, "f2"), "pct_chg": num_at(it, "f3"), "chg": num_at(it, "f4"),
+                    "volume_hand": num_at(it, "f5"), "amount": num_at(it, "f6"), "turnover_pct": num_at(it, "f8"),
+                })
+            })
+            .collect();
+        ctx.emit(&Value::Array(out));
+        return Ok(());
+    }
+    let mut t = Table::new(
+        &["代码", "名称", "最新", "涨跌幅", "涨跌额", "成交量", "成交额", "换手率"],
+        vec![Align::Left, Align::Left, Align::Right, Align::Right, Align::Right, Align::Right, Align::Right, Align::Right],
+    );
+    for it in &items {
+        t.row(vec![
+            str_at(it, "f12"),
+            str_at(it, "f14"),
+            fmt_opt(num_at(it, "f2"), 3),
+            colorize_pct(num_at(it, "f3")),
+            fmt_opt(num_at(it, "f4"), 3),
+            num_at(it, "f5").map(fmt_vol).unwrap_or("-".into()),
+            num_at(it, "f6").map(fmt_amount).unwrap_or("-".into()),
+            num_at(it, "f8").map(|x| format!("{:.2}%", x)).unwrap_or("-".into()),
+        ]);
+    }
+    t.print();
+    Ok(())
+}
+
+// ---------- 北向/南向资金 ----------
+
+pub fn northbound(ctx: &Ctx, south: bool, num: usize) -> Result<()> {
+    let rows = api::northbound(&ctx.http, south)?;
+    let start = rows.len().saturating_sub(num);
+    let recent = &rows[start..];
+    let direction = if south { "南向" } else { "北向" };
+    if ctx.json {
+        let out: Vec<Value> = recent
+            .iter()
+            .filter_map(|l| {
+                let p: Vec<&str> = l.split(',').collect();
+                if p.len() < 4 {
+                    return None;
+                }
+                Some(json!({
+                    "time": p[0],
+                    "cumulative_net_yi": p[1].parse::<f64>().ok().map(|x| x / 10000.0),
+                    "minute_net_yi": p[2].parse::<f64>().ok().map(|x| x / 10000.0),
+                    "total_net_yi": p[3].parse::<f64>().ok().map(|x| x / 10000.0),
+                }))
+            })
+            .collect();
+        ctx.emit(&json!({"direction": if south {"south"} else {"north"}, "flows": out}));
+        return Ok(());
+    }
+    println!("{}资金分时净流入（亿元）", direction);
+    let mut t = Table::new(&["时间", "累计净流入", "分钟净流入", "当日净流入"], vec![Align::Left, Align::Right, Align::Right, Align::Right]);
+    for l in recent {
+        let p: Vec<&str> = l.split(',').collect();
+        if p.len() < 4 {
+            continue;
+        }
+        let yi = |s: &str| s.parse::<f64>().map(|x| format!("{:.2}", x / 10000.0)).unwrap_or("-".into());
+        t.row(vec![p[0].into(), yi(p[1]), yi(p[2]), yi(p[3])]);
+    }
+    t.print();
+    Ok(())
+}
+
+// ---------- 7x24 快讯 ----------
+
+pub fn kuaixun(ctx: &Ctx, column: &str, num: usize) -> Result<()> {
+    let list = api::kuaixun(&ctx.http, column, num)?;
+    if ctx.json {
+        let out: Vec<Value> = list
+            .iter()
+            .map(|it| {
+                json!({
+                    "time": str_at(it, "showTime"),
+                    "title": str_at(it, "title"),
+                    "summary": str_at(it, "summary"),
+                    "stocks": it.get("stockList").and_then(|s| s.as_array()).map(|a| a.iter().filter_map(|x| x.as_str().map(String::from)).collect::<Vec<_>>()),
+                })
+            })
+            .collect();
+        ctx.emit(&Value::Array(out));
+        return Ok(());
+    }
+    println!("东方财富 7x24 快讯:");
+    for it in &list {
+        println!("[{}] {}", str_at(it, "showTime"), str_at(it, "title"));
+    }
+    Ok(())
+}
+
 // ---------- 股吧热榜 ----------
 
 pub fn hot(ctx: &Ctx, soar: bool, num: usize) -> Result<()> {
@@ -1070,6 +1250,61 @@ pub fn holders(ctx: &Ctx, code: &str) -> Result<()> {
         "户均持股市值: {}",
         num_at(d, "AVG_MARKET_CAP").map(fmt_amount).unwrap_or("-".into()),
     );
+    Ok(())
+}
+
+pub fn holders10(ctx: &Ctx, code: &str, num: usize) -> Result<()> {
+    let sec = secid::resolve(&ctx.http, code)?;
+    let sc = secucode(&sec)?;
+    let filter = format!("(SECUCODE=\"{}\")", sc);
+    let rows = api::dc_query(
+        &ctx.http,
+        "RPT_F10_EH_FREEHOLDERS",
+        &filter,
+        "END_DATE,HOLDER_RANK",
+        "-1,1",
+        num.max(10),
+        false,
+    )?;
+    // 只保留最新报告期
+    let latest = str_at(&rows[0], "END_DATE").chars().take(10).collect::<String>();
+    let rows: Vec<&Value> = rows
+        .iter()
+        .filter(|r| str_at(r, "END_DATE").chars().take(10).collect::<String>() == latest)
+        .take(num)
+        .collect();
+    if ctx.json {
+        let out: Vec<Value> = rows
+            .iter()
+            .map(|r| {
+                json!({
+                    "rank": num_at(r, "HOLDER_RANK"),
+                    "report_date": latest,
+                    "name": str_at(r, "HOLDER_NAME"),
+                    "hold_num": num_at(r, "HOLD_NUM"),
+                    "float_ratio_pct": num_at(r, "FREE_HOLDNUM_RATIO"),
+                    "change": str_at(r, "HOLD_NUM_CHANGE"),
+                })
+            })
+            .collect();
+        ctx.emit(&json!({"code": sec.code, "report_date": latest, "holders": out}));
+        return Ok(());
+    }
+    println!("{} 十大流通股东（报告期: {}）", sec.name.as_deref().unwrap_or(&sec.code), latest);
+    let mut t = Table::new(
+        &["排名", "股东名称", "持股数", "占流通股比", "较上期变化"],
+        vec![Align::Right, Align::Left, Align::Right, Align::Right, Align::Right],
+    );
+    for r in &rows {
+        t.row(vec![
+            str_at(r, "HOLDER_RANK"),
+            truncate(&str_at(r, "HOLDER_NAME"), 40),
+            num_at(r, "HOLD_NUM").map(|x| format!("{:.0}", x)).unwrap_or("-".into()),
+            num_at(r, "FREE_HOLDNUM_RATIO").map(|x| format!("{:.2}%", x)).unwrap_or("-".into()),
+            str_at(r, "HOLD_NUM_CHANGE"),
+        ]);
+    }
+    t.print();
     Ok(())
 }
 
