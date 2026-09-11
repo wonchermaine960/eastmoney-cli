@@ -1,6 +1,6 @@
 [package]
 name = "eastmoney-cli"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 description = "东方财富 A 股数据命令行工具（行情/大盘/股吧热榜/自选股）"
 
